@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Charge Nurse Assignment Planner v11</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#111827;
+    --panel2:#1f2937;
+    --text:#f8fafc;
+    --muted:#94a3b8;
+    --border:#334155;
+    --accent:#38bdf8;
+    --ms:#2563eb;
+    --imc:#dc2626;
+    --empty:#334155;
+    --good:#22c55e;
+    --warn:#f59e0b;
+    --bad:#ef4444;
+    --shadow:0 14px 34px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#0b1220,var(--bg));
+    color:var(--text);
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 14px 50px}
+  h1{font-size:1.55rem;margin:4px 0 6px}
+  h2{font-size:1.08rem;margin:0 0 12px}
+  .sub{color:var(--muted);line-height:1.4;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+  @media(max-width:850px){.grid{grid-template-columns:1fr}}
+  .card{
+    background:rgba(17,24,39,.94);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px;
+    box-shadow:var(--shadow);
+  }
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(max-width:540px){.controls{grid-template-columns:1fr}}
+  label{font-size:.82rem;color:var(--muted);display:block;margin-bottom:5px}
+  input,select,button{
+    font:inherit;
+  }
+  input[type=number],input[type=text],select{
+    width:100%;
+    color:var(--text);
+    background:#0b1220;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 11px;
+    outline:none;
+  }
+  input:focus,select:focus{border-color:var(--accent)}
+  .toggleRow{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--muted);font-size:.86rem}
+  button{
+    border:0;border-radius:11px;padding:10px 13px;cursor:pointer;font-weight:700;
+    background:#243244;color:var(--text);
+  }
+  button.primary{background:var(--accent);color:#06233a}
+  button.secondary{border:1px solid var(--border)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px;font-size:.82rem;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}
+  .unitMap{
+    position:relative;
+    display:grid;
+    grid-template-columns:repeat(13,minmax(38px,1fr));
+    grid-template-rows:repeat(6,70px);
+    gap:7px;
+    padding:10px 8px;
+    overflow-x:auto;
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:#0b1220;
+  }
+  .unitCore{
+    grid-column:2 / 13;
+    grid-row:2 / 6;
+    border:1px dashed #334155;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:#64748b;
+    font-size:.78rem;
+    letter-spacing:.03em;
+    pointer-events:none;
+  }
+  .wrapMarker{
+    grid-column:1;
+    grid-row:2 / 6;
+    border-left:2px dashed #64748b;
+    margin-left:19px;
+    position:relative;
+    pointer-events:none;
+  }
+  .wrapMarker span{
+    position:absolute;
+    left:7px;
+    top:50%;
+    transform:translateY(-50%);
+    width:70px;
+    color:#94a3b8;
+    font-size:.66rem;
+    line-height:1.2;
+  }
+  @media(max-width:700px){
+    .unitMap{grid-template-columns:repeat(13,46px)}
+  }
+  .room{
+    min-height:58px;
+    padding:6px;
+    border-radius:11px;
+    border:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    user-select:none;
+    transition:transform .06s ease, border-color .15s ease;
+  }
+  .room:active{transform:scale(.98)}
+  .room .num{font-weight:800;font-size:.95rem}
+  .room .type{font-size:.7rem;margin-top:3px;opacity:.9}
+  .room.empty{background:#182235;color:#cbd5e1}
+  .room.ms{background:rgba(37,99,235,.32);border-color:#3b82f6}
+  .room.imc{background:rgba(220,38,38,.34);border-color:#ef4444}
+  .room.assigned{outline:2px solid var(--assign-color,#fff);outline-offset:1px}
+  .summaryline{display:flex;gap:12px;flex-wrap:wrap;font-size:.86rem;margin:10px 0 2px;color:#dbeafe}
+  .pill{padding:5px 8px;border:1px solid var(--border);border-radius:999px;background:#0b1220}
+  .status{margin-top:12px;padding:10px 12px;border-radius:10px;background:#0b1220;border:1px solid var(--border);line-height:1.4}
+  .status.good{border-color:rgba(34,197,94,.55)}
+  .status.warn{border-color:rgba(245,158,11,.65)}
+  .status.bad{border-color:rgba(239,68,68,.7)}
+  .assignments{display:grid;gap:10px}
+  .assignment{
+    border:1px solid var(--border);
+    border-left:6px solid var(--assign-color,#64748b);
+    background:#0b1220;border-radius:12px;padding:11px 12px;
+  }
+  .assignmentTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .assignment h3{font-size:.98rem;margin:0 0 4px}
+  .small{font-size:.78rem;color:var(--muted);line-height:1.35}
+  .roomsText{font-weight:700;margin:7px 0 3px}
+  .badge{font-size:.72rem;border:1px solid var(--border);padding:4px 6px;border-radius:999px;white-space:nowrap}
+  .warnText{color:#fbbf24}
+  .badText{color:#fca5a5}
+  .goodText{color:#86efac}
+  .note{
+    margin-top:12px;font-size:.76rem;color:var(--muted);line-height:1.45;
+    border-top:1px solid var(--border);padding-top:10px
+  }
+  .footer{margin-top:14px;color:var(--muted);font-size:.74rem;line-height:1.4}
+.nurseBar{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.nurseBar button[aria-pressed="true"]{outline:3px solid white;outline-offset:2px}.room .owner{font-size:.65rem;font-weight:800}textarea.review{width:100%;min-height:220px;background:#0b1220;color:var(--text);padding:12px}button:focus-visible{outline:3px solid white} @media print{.nurseBar,.actions{display:none}}.room.rnSelected{box-shadow:0 0 0 3px var(--assign-color),0 0 20px var(--assign-color);filter:brightness(1.25)}.room.rnDimmed{opacity:.38}.room:focus-visible{opacity:1} .nameFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:290px;overflow:auto;padding:4px}.room.available{outline:2px dashed #f8fafc;outline-offset:1px;filter:brightness(1.25)}.room.rnSelected{outline:3px solid white;background:color-mix(in srgb,var(--assign-color) 42%,#0b1220)}.room .owner{white-space:nowrap}.room.rnDimmed{opacity:.34}.room.assigned{border-bottom:5px solid var(--assign-color)}button:disabled,input:disabled{cursor:wait;opacity:.65}#modeHint{margin-bottom:12px;line-height:1.5;color:#cbd5e1}.room .type{font-weight:800;padding:1px 3px;border-radius:3px}.room.imc .type{background:#991b1b;color:white}.room.ms .type{background:#1e40af;color:white}.assignment .actions button{font-size:.8rem;padding:7px 10px}@media print{body{background:white;color:black}.card,.assignment{background:white;color:black;box-shadow:none}.room.rnDimmed{opacity:1}.controls,.toggleRow,#modeHint{display:none}} .grid{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)}.card{min-width:0}@media(max-width:1000px){.grid{grid-template-columns:1fr}} 
+/* v7: compare assignment cards directly with the board. */
+.wrap{max-width:1500px}
+.planningGrid{grid-template-columns:minmax(640px,1.8fr) minmax(320px,1fr);align-items:start}
+.mapCard{position:sticky;top:12px}
+.assignmentsCard{position:sticky;top:12px}
+.assignmentsCard .assignments{max-height:calc(100vh - 190px);overflow:auto;scrollbar-gutter:stable;padding:3px 6px 6px 3px;min-height:240px}
+.rulesCard{margin-top:16px}
+.censusEntry{display:grid;grid-template-columns:auto 90px 1fr;gap:10px;align-items:center;margin-top:14px}.censusEntry label{margin:0;color:#e2e8f0}.censusEntry input{font-weight:bold;text-align:center}
+.rulesCard .controls{grid-template-columns:repeat(3,minmax(0,1fr))}
+.unitMap{grid-template-rows:repeat(6,60px)}
+.room{padding:4px;min-height:52px}
+.room.assigned{background:var(--assign-color);color:#071323;border:2px solid var(--assign-color);outline:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.24)}
+.room.assigned .num,.room.assigned .owner{color:#071323;opacity:1}
+.room.assigned .type{opacity:1}
+.room.unstaffed{background:repeating-linear-gradient(135deg,#202735,#202735 6px,#2e3746 6px,#2e3746 8px);color:#cbd5e1;border:1px dashed #94a3b8}.room.unstaffed .type{font-size:.57rem}.room.unstaffed .owner{font-size:.6rem}
+.room.assigned.empty .type{background:#e2e8f0;color:#0f172a}
+.room.rnSelected{outline:3px solid white;outline-offset:2px;box-shadow:0 0 0 5px #0b1220;filter:none}
+.room.assigned.rnDimmed{opacity:.55}
+.lockToggle{display:flex;align-items:center;gap:6px;white-space:nowrap;margin:0;color:#e2e8f0;font-size:.8rem;cursor:pointer;padding:5px 7px;border:1px solid #475569;border-radius:8px}
+.lockToggle input{width:19px;height:19px;margin:0;accent-color:#38bdf8;cursor:pointer}
+.assignmentTop h3{margin:5px 0 8px}
+.assignment:has(.lockToggle input:checked){border-top-color:var(--assign-color)}
+@media(max-width:1050px){.planningGrid{grid-template-columns:minmax(0,1fr)}.mapCard,.assignmentsCard{position:static}.assignmentsCard .assignments{max-height:480px}.rulesCard .controls{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.rulesCard .controls{grid-template-columns:1fr}}
+@media(max-width:650px){.censusEntry{grid-template-columns:1fr 100px}.censusEntry .small{grid-column:1/-1}}
+@media print{.mapCard,.assignmentsCard{position:static}.assignmentsCard .assignments{max-height:none;overflow:visible}.room.assigned{print-color-adjust:exact;-webkit-print-color-adjust:exact}.lockToggle{display:none}}
+
+/* v8: equal status and nurse halves, with independently operable board locks. */
+:root{--imc:#c2410c}
+.unitMap{grid-template-rows:repeat(6,68px)}
+.room,.room.assigned,.room.unstaffed{padding:0;display:grid;grid-template-rows:1fr 1fr;gap:0;min-height:60px;background:#182235;color:#f8fafc;border:1px solid #64748b;border-radius:8px;box-shadow:none;outline:0}
+.roomStatus{display:flex;flex-direction:column;align-items:center;justify-content:center;align-self:stretch;border-radius:7px 7px 0 0;background:#182235;color:#fff;line-height:1.05;padding:2px 0}
+.room.ms .roomStatus{background:#2563eb}.room.imc .roomStatus{background:#c2410c}
+.room .num,.room.assigned .num{color:#fff;font-size:.86rem}
+.room .type,.room.imc .type,.room.ms .type,.room.assigned.empty .type{background:none;color:#fff;font-size:.61rem;padding:0;margin-top:2px;opacity:1}
+.room .roomOwner{display:flex;align-items:center;justify-content:center;align-self:stretch;min-height:0;border-radius:0 0 7px 7px;border-top:1px solid rgba(255,255,255,.35);font-size:.65rem;background:#182235;color:#cbd5e1;line-height:1.1}
+.room.assigned .roomOwner{background:var(--assign-color);color:var(--rn-ink,#071323);font-weight:900}
+.room.unstaffed .roomStatus,.room.unstaffed .roomOwner{background:repeating-linear-gradient(135deg,transparent 0px,transparent 7px,#ef4444 7px,#ef4444 8px,transparent 8px,transparent 14px),#182235;color:#fff}
+.room.unstaffed .type{font-size:.55rem}.room.unstaffed .roomOwner{font-size:.59rem}
+.room.rnSelected{outline:3px solid white;outline-offset:2px;filter:none}
+.nurseChip{display:flex;align-items:center;border:1px solid #475569;border-bottom:5px solid var(--assign-color);border-radius:10px;background:#243244}
+.nurseChip>button{border:0;border-radius:8px;padding:8px 9px;background:transparent}
+.nurseChip .lockToggle{border:0;border-left:1px solid #475569;border-radius:0;padding:7px 8px;gap:5px}
+.nurseChip .lockToggle input{width:19px;height:19px}
+.nurseBar .nurseChip button[aria-pressed="true"]{outline:2px solid white;outline-offset:-2px}
+@media print{.roomStatus,.roomOwner{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.mapViewHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.mapViewHeader h2{margin:0}
+.viewToggle{display:flex;align-items:center;gap:8px;color:#e2e8f0;font-size:.85rem;margin:0;cursor:pointer;padding:7px 9px;border:1px solid #475569;border-radius:8px}
+.viewToggle input{width:19px;height:19px;accent-color:#38bdf8;cursor:pointer}#layoutHint{margin:9px 0}
+.unitMap.verticalRooms{display:flex;flex-direction:column;gap:7px;max-height:560px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;padding:8px 12px}
+.verticalRooms .unitCore,.verticalRooms .wrapMarker{display:none}
+.verticalRooms .room{flex:0 0 48px;min-height:48px;width:100%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+.verticalRooms .roomStatus{flex-direction:row;gap:14px;border-radius:7px 0 0 7px;padding:8px}
+.verticalRooms .room .num{font-size:1rem}.verticalRooms .room .type{font-size:.8rem;margin:0}
+.verticalRooms .room .roomOwner{border-top:0;border-left:1px solid rgba(255,255,255,.35);border-radius:0 7px 7px 0;font-size:.85rem}
+@media print{.unitMap.verticalRooms{max-height:none;overflow:visible}.verticalRooms .room{break-inside:avoid}.viewToggle{display:none}}
+
+.unitMap.verticalRooms{max-height:none;overflow:visible}.mapCard:has(.verticalRooms){position:static}.verticalRooms .room{flex-basis:40px;min-height:40px}
+.shiftToolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}.resourcePanel{background:#382b13;border:1px solid #fbbf24;border-radius:10px;padding:12px;margin:10px 0}.resourcePanel[hidden]{display:none}.transferRow{display:flex;align-items:center;gap:8px;margin:8px 0}.transferRow select{width:auto;min-width:90px;flex:1}.transferRow>span{white-space:nowrap;font-weight:bold}
+.shiftHistory{margin-top:16px}.shiftHistory li{padding:7px 0;line-height:1.4}dialog{max-width:440px;width:calc(100% - 28px);background:#111827;color:#f8fafc;border:1px solid #64748b;border-radius:14px;padding:20px}dialog::backdrop{background:#020617b0}.shiftToolbar button,dialog select,dialog button{min-height:44px}.shiftHistory textarea{margin-top:12px}.room:has(.owner){touch-action:manipulation}
+@media(max-width:650px){.transferRow{flex-wrap:wrap}.transferRow button{min-height:44px}.transferRow select{min-height:44px}.verticalRooms .room{flex-basis:44px;min-height:44px}.shiftToolbar{align-items:stretch}.shiftToolbar>*{flex:1}.mapCard{position:static}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Charge Nurse Assignment Planner v11</h1>
+  <div class="sub">Set rooms and nurses from your assignment sheet, then <b>Set AM baseline</b>. Later census edits record upgrades, downgrades, discharges and admissions. Resource patients remain clearly marked for transfer back to regular nurses.</div>
+
+<div class="grid planningGrid"><section class="card mapCard">
+      <div class="mapViewHeader"><h2 id="mapHeading">Unit map — rooms 4061–4090</h2><label class="viewToggle"><input id="verticalView" type="checkbox" aria-describedby="layoutHint"> Vertical room list</label></div><p id="layoutHint" class="small"></p>
+      <div class="legend"><span id="orientationHint">Top half = room status · bottom half = RN color</span><span><i class="dot" style="background:#2563eb"></i>MS</span><span><i class="dot" style="background:#c2410c"></i>IMC</span><span><i class="dot" style="background:#182235"></i>Open</span><span>Red diagonal stripes = Unstaffed</span></div>
+      <div class="shiftToolbar"><label class="viewToggle"><input id="resourceEnabled" type="checkbox"> Resource nurse on shift</label><button id="setBaseline" class="primary">Set AM baseline</button></div><div id="resourcePanel" class="resourcePanel" hidden><strong id="resourceSummary"></strong><div id="resourceRooms"></div><div class="small">Temporary or whole-shift coverage. Resource is separate from the regular nurse count; patients stay here during optimization until you explicitly transfer them.</div></div><div id="nurseBar" class="nurseBar" aria-label="Assignment tools"></div><div class="small" id="modeHint"></div>
+      <div id="rooms" class="unitMap" tabindex="0" role="region" aria-label="Room board, rooms 4061 through 4090">
+        <div class="unitCore">Unit core / nurses’ station</div>
+        <div class="wrapMarker"><span>4090 ↔ 4061<br>adjacent</span></div>
+      </div>
+      <div class="censusEntry"><label for="censusFraction">Census / active beds</label><input id="censusFraction" type="text" value="0/30" placeholder="26/28" aria-describedby="fractionHint"><div id="fractionHint" class="small">26/28 = 26 patients + 2 admission beds. Patient count must match the rooms on the board; the planner chooses which empty beds to reserve.</div></div><div id="censusSummary" class="summaryline"></div>
+      <div class="actions">
+        <button class="secondary" id="clearBtn">Clear census</button>
+        <button class="secondary" id="randomBtn">Example census</button>
+      </div>
+    </section><section class="card assignmentsCard">
+    <h2>Suggested assignments</h2><p class="small">Select a nurse to highlight their rooms. Check 🔒 to lock; uncheck to unlock.</p>
+    <div id="assignments" class="assignments">
+      <div class="small">No assignment generated yet.</div>
+    </div>
+  </section></div>
+<section class="card rulesCard">
+      <h2>Rules & staffing</h2>
+      <div class="controls">
+        <div>
+          <label for="nurses">Regular bedside nurses (excluding resource)</label>
+          <input id="nurses" type="number" min="1" max="30" value="7">
+        </div>
+        <div>
+          <label>RN names (optional)</label><div id="nameFields" class="nameFields"></div>
+        </div>
+        <div>
+          <label for="maxSpan">Maximum assignment span (room steps)</label>
+          <input id="maxSpan" type="number" min="1" max="29" value="8">
+          <div class="small">Hard limit across all rooms, occupied or empty. Includes assigned empty beds. 4090 ↔ 4061 is one step.</div>
+        </div>
+        <div>
+          <label for="maxEmpty">Max empty rooms inside an assignment span</label>
+          <input id="maxEmpty" type="number" min="0" max="15" value="2">
+        </div>
+        <div>
+          <label for="prefGap">Preferred max empty rooms between assigned patients</label>
+          <input id="prefGap" type="number" min="0" max="15" value="3">
+        </div>
+      </div>
+
+      <div class="toggleRow">
+        <input id="hardEmpty" type="checkbox" checked>
+        <label for="hardEmpty" style="margin:0">Strongly prefer the empty-room limit (patient coverage and avoiding singletons take priority)</label>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="optimizeBtn">Finish / optimize assignments</button>
+        <button class="secondary" id="copyBtn">Copy assignment text</button>
+<button class="secondary" id="iterateBtn">Try another assignment</button>
+<button class="secondary" id="reviewBtn">Copy for review</button><button class="secondary" id="resetAssignments">Clear unlocked assignments</button><button class="secondary" id="validateBtn">Validate assignments</button>
+      </div>
+
+      <div id="status" role="status" aria-live="polite" class="status">Enter the census, then optimize.</div><div id="validation" aria-live="polite"></div>
+
+      <div class="note">
+        <b>Ratio limits:</b> any IMC → maximum 3 patients; MS-only → maximum 4. Reserved empty beds also use capacity, but never count as patients for workload balance.
+        <br><b>Preferences:</b> avoid single-patient assignments first; favor 3 IMC, then 2 IMC + open, then 2 IMC + 1 MS, then 1 IMC + 2 MS. Favor 4 MS or 3 MS + open over unnecessary mixing. Small walking increases are acceptable for same-class groups; long spans can justify mixing. The search can skip rooms.
+        <br><b>Manual workflow:</b> select an RN, choose available rooms, then Lock RN. Optimization replaces unlocked assignments and preserves each locked RN exactly. Release assignment frees one RN’s rooms. Clear unlocked assignments keeps all locks.
+        <br>Nearby empty beds are reserved when capacity and the hard maximum span allow; otherwise open slots remain. Validate reports unassigned patients and separately lists unreserved empty beds. The empty-room setting is a preference, not a safety limit.
+        <br>The original U-shaped map is preserved: 4090→4078 along the top, 4077→4074 down the right wall, 4073→4061 along the bottom. 4090 ↔ 4061 remains one hallway step. Nurse numbering follows the lowest occupied room in each unlocked group; wrap-around groups can include the 4090 end.
+      </div>
+    </section>
+  <section class="card shiftHistory"><h2>Changes since AM baseline</h2><p id="baselineSummary"></p><p id="eventCounts" class="small"></p><ol id="shiftEvents"></ol><button id="copyShiftLog" class="secondary">Copy shift log</button><textarea id="shiftLogCopy" class="review" hidden readonly aria-label="Shift log text"></textarea></section><dialog id="statusEditor"><h2 id="editRoomLabel"></h2><label for="newRoomStatus">New room status</label><select id="newRoomStatus"><option value="ms">Med-Surg</option><option value="imc">IMC</option><option value="empty">Open / discharged</option></select><p class="small">Save records one change. Nurse ownership is retained; a discharge leaves an open bed with the assigned nurse.</p><div class="actions"><button id="saveRoomStatus" class="primary">Save status change</button><button id="cancelRoomStatus">Cancel</button></div></dialog><div class="footer">
+    This prototype is a planning aid, not a validated hospital staffing system. It does not account for acuity beyond Med-Surg vs IMC, sitter needs, isolation, admissions/discharges, continuity, skill mix, or local policy. Do not enter patient names, MRNs, diagnoses, or other identifiers.
+  </div>
+</div>
+
+<script id="plannerEngine">
+/* Pure assignment engine. Rooms use indices 0..29; the hallway is a loop. */
+const Planner = (() => {
+  function geometry(ids, state) {
+    if (!ids.length) return {span:0, emptyInside:0, maxGap:0};
+    const sorted=[...ids].sort((a,b)=>a-b);
+    let best;
+    for(let start=0;start<sorted.length;start++) {
+      const order=sorted.slice(start).concat(sorted.slice(0,start));
+      const pos=order.map(r=>r<order[0]?r+30:r);
+      const span=pos.at(-1)-pos[0];
+      let emptyInside=0,maxGap=0;
+      for(let p=pos[0]+1;p<pos.at(-1);p++) if(state[p%30]==='empty') emptyInside++;
+      for(let j=1;j<pos.length;j++) {
+        let gap=0;
+        for(let p=pos[j-1]+1;p<pos[j];p++) if(state[p%30]==='empty') gap++;
+        maxGap=Math.max(maxGap,gap);
+      }
+      if(!best||span<best.span) best={span,emptyInside,maxGap};
+    }
+    return best;
+  }
+  function info(ids,state) {
+    const imc=ids.filter(r=>state[r]==='imc').length;
+    const ms=ids.filter(r=>state[r]==='ms').length;
+    return {...geometry(ids,state),imc,ms,patients:imc+ms,cap:imc?3:4,ids:[...ids]};
+  }
+  function valid(ids,state,settings) {
+    const g=info(ids,state);
+    return ids.every(r=>state[r]!=='unstaffed') && new Set(ids).size===ids.length && ids.length<=g.cap && g.span<=settings.maxSpan;
+  }
+  function score(g,settings,target) {
+    let workflow=g.imc ? (g.imc===3?0:g.imc===2?(g.ms?80:18):(g.ms===2?140:g.ms===1?120:60)) : [0,65,40,12,0][g.ms];
+    const load=g.imc/3+g.ms/4;
+    return workflow+g.span*3+Math.max(0,g.span-5)**2*5+
+      Math.max(0,g.emptyInside-settings.maxEmpty)*(settings.hardEmpty?18:6)+
+      Math.max(0,g.maxGap-settings.prefGap)*8+80*(load-target)**2;
+  }
+  // Exact class-count feasibility / singleton lower bound, independent of geography.
+  function minSingles(imc,ms,k,memo=new Map()) {
+    const key=imc+','+ms+','+k;
+    if(memo.has(key))return memo.get(key);
+    if(k===0)return imc+ms===0?0:Infinity;
+    if(imc+ms<k||imc+ms>4*k)return Infinity;
+    let best=Infinity;
+    for(let a=0;a<=Math.min(3,imc);a++)for(let b=0;b<=Math.min(a?3-a:4,ms);b++) {
+      if(!a&&!b)continue;
+      best=Math.min(best,(a+b===1?1:0)+minSingles(imc-a,ms-b,k-1,memo));
+    }
+    memo.set(key,best);return best;
+  }
+  function solve(state,nurses,fixed,settings,variation=0,budget=180000) {
+    const used=new Set(fixed.flat());
+    if(used.size!==fixed.flat().length||fixed.some(ids=>!valid(ids,state,settings)))return {error:'A locked assignment exceeds capacity or the maximum span, or contains duplicate rooms.'};
+    const remaining=state.map((t,r)=>r).filter(r=>['ms','imc'].includes(state[r])&&!used.has(r));
+    const free=[];for(let n=0;n<nurses;n++)if(!fixed[n]?.length)free.push(n);
+    const active=Math.min(free.length,remaining.length);
+    const imc=remaining.filter(r=>state[r]==='imc').length,ms=remaining.length-imc;
+    const countMemo=new Map(),lower=minSingles(imc,ms,active,countMemo);
+    if(!Number.isFinite(lower))return {error:'Not enough unlocked nurses to cover the remaining patients within the ratios. Release a locked assignment or increase staffing.'};
+    if(!remaining.length)return {groups:Array.from({length:nurses},(_,n)=>[...(fixed[n]||[])]),limited:false,singletons:0,lower:0};
+    const target=state.reduce((s,t)=>s+(t==='imc'?1/3:t==='ms'?1/4:0),0)/nurses;
+    const candidates=Array.from({length:30},()=>[]);
+    // Enumerate arbitrary subsets, not sequential occupied-room chunks.
+    function choose(start,ids) {
+      if(ids.length) {
+        const g=info(ids,state);
+        if(g.ids.length>g.cap)return;
+        if(g.span<=settings.maxSpan) {
+          const mask=ids.reduce((m,r)=>m|(1<<r),0);
+          const jitter=variation?((Math.sin(mask*0.001+variation*9.7)*43758.5453)%1+1)*4:0;
+          const c={...g,mask,cost:score(g,settings,target)+jitter};
+          ids.forEach(r=>candidates[r].push(c));
+        }
+        if(ids.length===4)return;
+      }
+      for(let j=start;j<remaining.length;j++)choose(j+1,ids.concat(remaining[j]));
+    }
+    choose(0,[]);
+    candidates.forEach(list=>list.sort((a,b)=>a.cost-b.cost||b.patients-a.patients||a.mask-b.mask));
+    const full=remaining.reduce((m,r)=>m|(1<<r),0);
+    let nodes=0,limited=false,best=null,bestCost=Infinity,foundTarget=null;
+    // Singleton count is lexicographic: no amount of walking/workflow improvement
+    // can buy a singleton when a zero-singleton solution is found.
+    for(let singles=lower;singles<=active;singles++) {
+      const memo=new Map();let passNodes=0;
+      function visit(mask,k,a,b,s,cost,path) {
+        if(++passNodes>budget){limited=true;return;}
+        nodes++;
+        if(s<0||minSingles(a,b,k,countMemo)>s||cost>=bestCost)return;
+        if(!mask) {
+          if(!k&&s===0){best=path.map(g=>g.ids);bestCost=cost;foundTarget=singles;}
+          return;
+        }
+        if(!k)return;
+        const key=mask+','+k+','+s;
+        if((memo.get(key)??Infinity)<=cost)return;
+        memo.set(key,cost);
+        // Most constrained room first greatly reduces equivalent partitions.
+        let options=null;
+        for(const r of remaining)if(mask&(1<<r)) {
+          const list=candidates[r].filter(g=>(g.mask&mask)===g.mask&&(g.patients!==1||s>0));
+          if(options===null||list.length<options.length)options=list;
+        }
+        for(const g of options||[]) {
+          visit(mask^g.mask,k-1,a-g.imc,b-g.ms,s-(g.patients===1?1:0),cost+g.cost,path.concat(g));
+          if(passNodes>budget)break;
+        }
+      }
+      visit(full,active,imc,ms,singles,0,[]);
+      if(best)break;
+      // A bounded failed pass is never described as proof that singles are unavoidable.
+    }
+    if(!best)return {error:limited?'Search limit reached without a completion. Release assignments or adjust the maximum span and try again.':'No completion satisfies the locked assignments, ratios and maximum span.',limited};
+    best.sort((a,b)=>Math.min(...a)-Math.min(...b));
+    const groups=Array.from({length:nurses},(_,n)=>[...(fixed[n]||[])]);
+    best.forEach((ids,i)=>groups[free[i]]=ids);
+    return {groups,limited,nodes,singletons:foundTarget,lower,cost:bestCost};
+  }
+  function validate(state,groups,settings) {
+    const errors=[],warnings=[],seen=new Map();
+    groups.forEach((ids,n)=>{
+      const g=info(ids,state);
+      if(ids.some(r=>state[r]==='unstaffed'))errors.push(`RN ${n+1} includes an unstaffed room.`);
+      if(g.patients>g.cap)errors.push(`RN ${n+1}: ${g.patients} patients exceeds the ${g.cap}-patient ratio.`);
+      if(ids.length>g.cap)errors.push(`RN ${n+1}: patients plus reserved beds exceed ${g.cap} slots.`);
+      if(g.span>settings.maxSpan)errors.push(`RN ${n+1}: span ${g.span} exceeds ${settings.maxSpan} room steps.`);
+      if(g.patients===1)warnings.push(`RN ${n+1} has only one patient.`);
+      if(!g.patients)warnings.push(`RN ${n+1} has no patients.`);
+      if(g.emptyInside>settings.maxEmpty)warnings.push(`RN ${n+1} exceeds the empty-room span preference.`);
+      ids.forEach(r=>{if(seen.has(r))errors.push(`Room ${4061+r} is assigned more than once.`);seen.set(r,n);});
+    });
+    const missing=state.map((t,r)=>r).filter(r=>['ms','imc'].includes(state[r])&&!seen.has(r));
+    if(missing.length)errors.push('Unassigned patients: '+missing.map(r=>4061+r).join(', ')+'.');
+    const unreserved=state.map((t,r)=>r).filter(r=>state[r]==='empty'&&!seen.has(r));
+    return {errors,warnings,missing,unreserved};
+  }
+  return {geometry,info,valid,score,minSingles,solve,validate};
+})();
+
+</script>
+<script>
+(() => {
+  const $=id=>document.getElementById(id);
+  const COLORS=['#38bdf8','#a78bfa','#34d399','#fbbf24','#fb7185','#e2e8f0','#b7793e','#087f8c','#e879f9','#a3c635','#ef4444','#3154a4','#f6b894','#71717a','#c9c4a2','#8c245d','#7294a6','#686e20','#ff9ed1','#155e3a','#c9e8ff','#d65c00','#4d3a79','#f5e6b8','#8fbb9c','#a63e38','#89a6ff','#b8a2c8','#3d5a61','#e6ce43'];
+  let state=Array(30).fill('empty'),groups=Array.from({length:7},()=>[]),locked=Array(7).fill(false),names=[],selected='census',variation=0,busy=false,totalBeds=30;
+  const key='chargePlannerV11';
+  let resourceEnabled=false,baseline=null,events=[];
+  const regularCount=()=>groups.length-(resourceEnabled?1:0);
+  const isResource=n=>resourceEnabled&&n===groups.length-1;
+  const nurseLabel=n=>isResource(n)?'Resource':`RN ${n+1}`;
+  let preferredActive=new Set();
+  const name=n=>names[n]?.trim()||nurseLabel(n);
+  const settings=()=>({maxSpan:Math.max(1,Math.min(29,+$('maxSpan').value||8)),maxEmpty:Math.max(0,+$('maxEmpty').value||0),prefGap:Math.max(0,+$('prefGap').value||0),hardEmpty:$('hardEmpty').checked});
+  const color=n=>COLORS[n%COLORS.length];
+  function status(text,kind=''){ $('status').textContent=text;$('status').className='status '+kind; }
+  let movingBed=null;
+  const isPatient=t=>t==='ms'||t==='imc';
+  const occupied=()=>state.filter(isPatient).length;
+  const reserved=()=>groups.flat().filter(r=>state[r]==='empty').length;
+  function automaticUnstaffed(){
+    const used=new Set(groups.flat()),needed=Math.max(0,30-totalBeds-state.filter(t=>t==='unstaffed').length);
+    return new Set(state.map((t,r)=>r).filter(r=>state[r]==='empty'&&!used.has(r)).sort((a,b)=>Number(preferredActive.has(a))-Number(preferredActive.has(b))||b-a).slice(0,needed));
+  }
+  function censusError(){
+    const match=$('censusFraction').value.trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+    if(!match||+match[2]<1||+match[2]>30||+match[1]>+match[2])return 'Enter patients / active beds, for example 26/28 (maximum 30 beds).';
+    if(+match[1]!==occupied())return `The fraction says ${+match[1]} patients, but the board has ${occupied()}. Update the room census or the fraction so they match.`;
+    if(+match[2]>30-state.filter(t=>t==='unstaffed').length)return 'The active-bed count exceeds rooms available after your manual Unstaffed designations. Reopen a room or lower the denominator.';
+    return '';
+  }
+  function save(){try{localStorage.setItem(key,JSON.stringify({state,groups,locked,names,totalBeds,resourceEnabled,baseline,events,verticalView:$('verticalView').checked,preferredActive:[...preferredActive],settings:settings()}));}catch{}}
+  function load(){try{
+    let x=JSON.parse(localStorage.getItem(key)||localStorage.getItem('chargePlannerV10_1')||localStorage.getItem('chargePlannerV9')||localStorage.getItem('chargePlannerV8')||localStorage.getItem('chargePlannerV7')||localStorage.getItem('chargePlannerV6')||'null');
+    if(!x){const old=JSON.parse(localStorage.getItem('chargePlannerV1')||'null');if(old){
+      const count=Math.max(1,Math.min(30,+old.nurses||7));
+      x={state:old.state,groups:Array.from({length:count},()=>[]),locked:Array(count).fill(false),names:(old.names||'').split(','),settings:old};
+      Object.entries(old.pins||{}).forEach(([r,n])=>{if(Number.isInteger(+r)&&+r>=0&&+r<30&&Number.isInteger(n)&&n>=0&&n<count){x.groups[n].push(+r);x.locked[n]=true;}});
+    }}
+    if(x&&Array.isArray(x.state)&&x.state.length===30&&Array.isArray(x.groups)&&x.groups.length>0&&x.groups.length<=31){
+      state=x.state.map(t=>['empty','ms','imc','unstaffed'].includes(t)?t:'empty');
+      groups=x.groups.map(g=>Array.isArray(g)?g.filter(r=>Number.isInteger(r)&&r>=0&&r<30):[]);
+      locked=groups.map((g,n)=>!!x.locked?.[n]);names=Array.isArray(x.names)?x.names.map(String):[];
+      resourceEnabled=!!x.resourceEnabled;baseline=x.baseline||null;events=Array.isArray(x.events)?x.events:[];
+      if(Number.isInteger(x.totalBeds)&&x.totalBeds>=1&&x.totalBeds<=30)totalBeds=x.totalBeds;
+      $('verticalView').checked=!!x.verticalView;
+      preferredActive=new Set((x.preferredActive||[]).filter(r=>Number.isInteger(r)&&r>=0&&r<30));
+      for(const id of ['maxSpan','maxEmpty','prefGap'])if(x.settings?.[id]!==undefined)$(id).value=x.settings[id];
+      if(typeof x.settings?.hardEmpty==='boolean')$('hardEmpty').checked=x.settings.hardEmpty;
+    }
+  }catch{} $('nurses').value=regularCount();$('resourceEnabled').checked=resourceEnabled;$('censusFraction').value=occupied()+'/'+totalBeds;}
+  function owners(){const map=new Map();groups.forEach((g,n)=>g.forEach(r=>map.set(r,n)));return map;}
+  function applyLayout(){
+    const vertical=$('verticalView').checked;
+    $('rooms').classList.toggle('verticalRooms',vertical);
+    $('orientationHint').textContent=vertical?'Left half = room / status · right half = RN color':'Top half = room status · bottom half = RN color';
+    $('mapHeading').textContent=vertical?'Room list — 4061 to 4090':'Unit map — rooms 4061–4090';
+    $('layoutHint').textContent=vertical?'All 30 rooms are expanded, with no internal scroll box. Walking distance still follows the U-shaped unit, including 4090 ↔ 4061.':'U-shaped unit view. Switch views at any time without changing assignments.';
+  }
+  function button(text,action,cls='secondary'){const b=document.createElement('button');b.type='button';b.textContent=text;b.className=cls;b.onclick=action;return b;}
+  function changed(message){$('validation').replaceChildren();render();save();if(message)status(message);}
+  function lockControl(n,location){
+    const label=document.createElement('label');label.className='lockToggle';
+    const check=document.createElement('input');check.type='checkbox';check.checked=locked[n];check.id=location+'LockRN'+n;
+    check.setAttribute('aria-label',`Lock ${nurseLabel(n)} assignment (${location==='top'?'board':'card'})`);
+    check.onchange=()=>{
+      if(check.checked&&!groups[n].length){check.checked=false;status('Select rooms before locking this nurse.','warn');return;}
+      if(check.checked&&!Planner.valid(groups[n],state,settings())){check.checked=false;status('Correct this assignment’s capacity or span before locking.','bad');return;}
+      locked[n]=check.checked;changed(`${nurseLabel(n)} ${locked[n]?'locked. Their rooms will be preserved.':'unlocked. Their rooms may be reassigned by optimization.'}`);
+      $(check.id)?.focus({preventScroll:true});
+    };
+    const text=document.createElement('span');text.textContent=location==='top'?(locked[n]?'🔒':'🔓'):(locked[n]?'🔒 Locked':'🔓 Lock');
+    label.append(check,text);return label;
+  }
+  function renderNames(){
+    $('nameFields').replaceChildren();
+    groups.forEach((_,n)=>{
+      const box=document.createElement('div'),label=document.createElement('label'),input=document.createElement('input');
+      label.htmlFor='rnName'+n;label.textContent=nurseLabel(n);input.id=label.htmlFor;input.type='text';input.placeholder='Name (optional)';input.value=names[n]||'';
+      input.oninput=()=>{names[n]=input.value;render();save();};box.append(label,input);$('nameFields').append(box);
+    });
+  }
+  function render(){
+    const map=owners(),remaining=state.filter((t,r)=>isPatient(t)&&!map.has(r)).length,autoClosed=automaticUnstaffed();
+    const remainingMS=state.filter((t,r)=>t==='ms'&&!map.has(r)).length,remainingIMC=state.filter((t,r)=>t==='imc'&&!map.has(r)).length;
+    const bar=$('nurseBar');bar.replaceChildren();
+    [['census','Edit census'],['erase','Unassign room'],['unstaffed','Set unstaffed / reopen'],['moveEmpty','Move admission bed'],...groups.map((_,n)=>[n,`${nurseLabel(n)}${names[n]?.trim()?' · '+name(n):''}${locked[n]?' 🔒':''}`])].forEach(([id,text])=>{
+      const b=button(text.replace(/ 🔒$/,''),()=>{selected=id;movingBed=null;render();});b.setAttribute('aria-pressed',String(selected===id));
+      if(typeof id==='number'){
+        const chip=document.createElement('div');chip.className='nurseChip';chip.style.setProperty('--assign-color',color(id));
+        chip.append(b,lockControl(id,'top'));bar.append(chip);
+      }else bar.append(b);
+    });
+    $('modeHint').textContent=typeof selected==='number'?`Selecting ${nurseLabel(selected)}${name(selected)!==nurseLabel(selected)?' ('+name(selected)+')':''}: ${remainingMS} MS and ${remainingIMC} IMC remaining. Bright outlines show available rooms; ✓ marks this nurse’s rooms. ${locked[selected]?'Unlock to edit.':'Select rooms, then lock to preserve the assignment.'}`:selected==='erase'?'Click an unlocked room to unassign it. Locked rooms are protected.':`${baseline?'Tap a room to choose its new status and record the change.':'Tap rooms to cycle Open → MS → IMC.'} ${remainingMS} MS and ${remainingIMC} IMC remain unassigned.`;
+    if(selected==='unstaffed')$('modeHint').textContent='Click an empty room to mark it manually Unstaffed (it will stay excluded during optimization). Click a manually unstaffed room to reopen it. Patient rooms must be emptied first. Automatic unstaffed rooms can be exchanged using Move admission bed.';
+    if(selected==='moveEmpty')$('modeHint').textContent=movingBed===null?'Click a reserved empty bed, then its replacement empty room (including an automatically unstaffed room). Unlock its nurse first.':`Moving ${4061+movingBed}: choose a replacement empty room. Patients and nurse ownership stay unchanged.`;
+    $('rooms').innerHTML='<div class="unitCore">Unit core / nurses’ station</div><div class="wrapMarker"><span>4090 ↔ 4061<br>adjacent</span></div>';
+    state.forEach((t,r)=>{
+      const room=r+4061,n=map.get(r),closed=t==='unstaffed'||autoClosed.has(r),b=button('',()=>handleRoom(r),'room '+(closed?'unstaffed':t));
+      const pos=room>=4078?{row:1,col:4091-room}:room>=4074?{row:4079-room,col:13}:{row:6,col:room-4060};
+      b.style.gridRow=pos.row;b.style.gridColumn=pos.col;
+      if(n!==undefined){b.classList.add('assigned');b.style.setProperty('--assign-color',color(n));}
+      if(typeof selected==='number'){
+        if(n===selected)b.classList.add('rnSelected');
+        else if(n!==undefined||!isPatient(t))b.classList.add('rnDimmed');
+        else b.classList.add('available');
+      }
+      const statusHalf=document.createElement('span');statusHalf.className='roomStatus';
+      for(const [cls,text] of [['num',String(room)],['type',closed?'Unstaffed':t==='empty'?'Open':t==='ms'?'MS':'IMC']]){const span=document.createElement('span');span.className=cls;span.textContent=text;statusHalf.append(span);}
+      const ownerHalf=document.createElement('span');ownerHalf.className='owner roomOwner';ownerHalf.textContent=closed?(t==='unstaffed'?'× Manual':'× Auto'):n!==undefined?`${n===selected?'✓ ':''}${nurseLabel(n)}${locked[n]?' 🔒':''}`:isPatient(t)?'Free':'—';
+      if(n!==undefined){const rgb=color(n).slice(1).match(/../g).map(x=>parseInt(x,16));b.style.setProperty('--rn-ink',rgb[0]*.299+rgb[1]*.587+rgb[2]*.114>150?'#071323':'#ffffff');}
+      b.append(statusHalf,ownerHalf);
+      b.setAttribute('aria-label',`Room ${room}, ${closed?(t==='unstaffed'?'unstaffed manual':'unstaffed automatic'):t}, ${n===undefined?'unassigned':nurseLabel(n)+(locked[n]?', locked':'')}${n===selected?', selected':''}`);
+      b.setAttribute('aria-pressed',String(typeof selected==='number'&&n===selected));$('rooms').append(b);
+    });
+    const imc=state.filter(t=>t==='imc').length,ms=state.filter(t=>t==='ms').length;
+    $('censusSummary').innerHTML=`<span class="pill">Census: <b>${imc+ms}/${totalBeds}</b></span><span class="pill">IMC: <b>${imc}</b></span><span class="pill">MS: <b>${ms}</b></span><span class="pill">Admission beds: <b>${reserved()}/${Math.max(0,totalBeds-imc-ms)}</b> reserved</span><span class="pill">Patients remaining: <b>${remaining}</b></span><span class="pill">Locked RNs: <b>${locked.filter(Boolean).length}</b></span>`;
+    $('assignments').replaceChildren();
+    groups.forEach((ids,n)=>{
+      const g=Planner.info(ids,state),card=document.createElement('div');card.className='assignment';card.style.setProperty('--assign-color',color(n));
+      const title=document.createElement('h3');title.textContent=`${nurseLabel(n)}${names[n]?.trim()?' · '+name(n):''}${locked[n]?' 🔒 Locked':''}`;
+      const details=document.createElement('div');details.className='small';details.textContent=`${g.imc} IMC · ${g.ms} MS · ${ids.length-g.patients} reserved empty beds · ${g.cap-ids.length} open slots · span ${g.span} steps`;
+      const rooms=document.createElement('div');rooms.className='roomsText';rooms.textContent=[...ids].sort((a,b)=>a-b).map(r=>`${4061+r} ${state[r]==='empty'?'Empty':state[r].toUpperCase()}`).join(' · ')||'No rooms assigned';
+      const tools=document.createElement('div');tools.className='actions';
+      const lockLabel=lockControl(n,'card');
+      const top=document.createElement('div');top.className='assignmentTop';top.append(title,lockLabel);
+      tools.append(button('Select rooms',()=>{selected=n;render();}),button('Release assignment',()=>{groups[n]=[];locked[n]=false;selected=n;changed(`${nurseLabel(n)} released. Select available rooms manually, or finish / optimize. Lock other RNs first to preserve them.`);}));
+      card.append(top,details,rooms,tools);$('assignments').append(card);
+    });
+    renderShift();
+  }
+  function handleRoom(r){
+    if(busy)return;
+    const owner=owners().get(r);
+    if(selected==='moveEmpty'){
+      if(movingBed===null){
+        if(state[r]!=='empty'||owner===undefined){status('Choose a reserved empty bed first.','warn');return;}
+        if(locked[owner]){status('Unlock this nurse before moving the admission bed.','warn');return;}
+        movingBed=r;render();return;
+      }
+      const from=movingBed,n=owners().get(from);
+      if(r===from){movingBed=null;render();return;}
+      if(state[r]!=='empty'||owner!==undefined){status('Choose an unassigned empty or automatically unstaffed room. Manually unstaffed rooms must be reopened first.','warn');return;}
+      const ids=groups[n].map(x=>x===from?r:x);
+      if(!Planner.valid(ids,state,settings())){status('That room exceeds the maximum assignment span. Choose a closer room.','warn');return;}
+      groups[n]=ids;movingBed=null;changed(`Admission bed moved from ${4061+from} to ${4061+r} for ${nurseLabel(n)}. Lock RN to preserve it.`);return;
+    }
+    if(selected==='unstaffed'){
+      if(isPatient(state[r])){status('This room has a patient. Change its census to Empty before marking it Unstaffed.','warn');return;}
+      if(owner!==undefined){status('Unassign or move this reserved empty bed before marking it Unstaffed.','warn');return;}
+      if(state[r]==='unstaffed'){state[r]='empty';preferredActive.add(r);totalBeds=Math.min(30-state.filter(t=>t==='unstaffed').length,totalBeds+1);}
+      else{state[r]='unstaffed';preferredActive.delete(r);totalBeds=Math.min(totalBeds,30-state.filter(t=>t==='unstaffed').length);}
+      $('censusFraction').value=occupied()+'/'+totalBeds;changed('Room staffing updated. Manually unstaffed rooms remain excluded during optimization.');return;
+    }
+    if(selected==='census'){
+      if(state[r]==='unstaffed'){status('Use Set unstaffed / reopen to reopen this room first.','warn');return;}
+      if(automaticUnstaffed().has(r)){status('This room is automatically unstaffed. Increase the active-bed count or use Move admission bed to bring it into the assignment.','warn');return;}
+      if(baseline){openStatusEditor(r);return;}
+      state[r]=['empty','ms','imc'][(['empty','ms','imc'].indexOf(state[r])+1)%3];
+      $('censusFraction').value=occupied()+'/'+totalBeds;
+      changed('Census updated. Validate assignments before finishing; an IMC change may lower capacity.');return;
+    }
+    if(owner!==undefined&&locked[owner]){status(`${nurseLabel(owner)} is locked. Unlock or release their assignment first.`,'warn');return;}
+    if(selected==='erase'){
+      if(owner!==undefined)groups[owner]=groups[owner].filter(x=>x!==r);
+      changed('Room unassigned. Locked assignments were preserved.');return;
+    }
+    if(locked[selected]){status('Unlock this nurse before changing rooms.','warn');return;}
+    if(owner===selected)groups[selected]=groups[selected].filter(x=>x!==r);
+    else if(owner!==undefined){status(`Room ${4061+r} belongs to ${nurseLabel(owner)}. Unassign it or release that RN first.`,'warn');return;}
+    else{
+      const ids=groups[selected].concat(r);
+      if(state[r]==='unstaffed'){status('This room is manually unstaffed. Reopen it before assigning.','warn');return;}
+      if(state[r]==='empty'&&reserved()>=Math.max(0,totalBeds-occupied())){status('All admission beds allowed by the census fraction are already reserved. Unassign an empty bed or increase the active-bed count.','warn');return;}
+      if(!Planner.valid(ids,state,settings())){status('That selection exceeds capacity (3 rooms with IMC, 4 MS-only, including reserved beds) or the maximum room span.','bad');return;}
+      groups[selected]=ids;
+    }
+    changed(`${nurseLabel(selected)} updated. Lock RN when ready to preserve this assignment.`);
+  }
+  function validate(){
+    const v=Planner.validate(state,groups,settings()),panel=$('validation');panel.replaceChildren();
+    if(resourceEnabled){v.errors=v.errors.map(t=>t.replace('RN '+groups.length+':','Resource:'));v.warnings=v.warnings.map(t=>t.replace('RN '+groups.length+' ','Resource '));}
+    v.warnings=v.warnings.filter(t=>t!=='Resource has no patients.');
+    const error=censusError();if(error)v.errors.push(error);
+    if(reserved()>Math.max(0,totalBeds-occupied()))v.errors.push(`There are ${reserved()} reserved empty beds, but ${occupied()}/${totalBeds} allows only ${Math.max(0,totalBeds-occupied())}. Release surplus empty beds or optimize unlocked assignments again.`);
+    if(reserved()<Math.max(0,totalBeds-occupied()))v.warnings.push(`${totalBeds-occupied()-reserved()} active empty beds are not reserved for an RN yet.`);
+    const heading=document.createElement('p');heading.textContent=v.errors.length?'Assignment issues found:':'All occupied rooms are assigned exactly once; ratios, reserved-bed capacity and maximum spans pass.';panel.append(heading);
+    for(const [list,cls] of [[v.errors,'badText'],[v.warnings,'warnText']])if(list.length){const ul=document.createElement('ul');ul.className=cls;list.forEach(t=>{const li=document.createElement('li');li.textContent=t;ul.append(li);});panel.append(ul);}
+    const auto=automaticUnstaffed(),activeEmpty=v.unreserved.filter(r=>!auto.has(r));
+    const closed=state.map((t,r)=>r).filter(r=>state[r]==='unstaffed'||auto.has(r));
+    const empty=document.createElement('p');empty.className='small';empty.textContent=`${Math.max(0,totalBeds-occupied())} admission beds allowed; ${reserved()} reserved. Active empty beds still unassigned: ${activeEmpty.map(r=>4061+r).join(', ')||'none'}. Unstaffed rooms (${closed.length}): ${closed.map(r=>`${4061+r} (${auto.has(r)?'automatic':'manual'})`).join(', ')||'none'}. Walking distances still include all physical rooms.`;panel.append(empty);
+    status(v.errors.length?`${v.errors.length} validation issue(s). See details below.`:`Validation passed.${v.warnings.length?' Review the workload / geography notes below.':''}`,v.errors.length?'bad':v.warnings.length?'warn':'good');
+    return v;
+  }
+  function reserveEmptyBeds(){
+    const used=new Set(groups.flat());
+    groups.forEach((ids,n)=>{
+      if(locked[n]||isResource(n)||!ids.length)return;
+      while(ids.length<Planner.info(ids,state).cap&&reserved()<Math.max(0,totalBeds-occupied())){
+        const options=state.map((t,r)=>r).filter(r=>state[r]==='empty'&&!used.has(r)&&Planner.valid(ids.concat(r),state,settings()));
+        options.sort((a,b)=>Planner.geometry(ids.concat(a),state).span-Planner.geometry(ids.concat(b),state).span||a-b);
+        if(!options.length)break;
+        const r=options[0];ids.push(r);used.add(r);
+      }
+    });
+  }
+  async function optimize(alternative=false){
+    if(busy)return;
+    const error=censusError();if(error){status(error,'bad');return;}
+    totalBeds=+$('censusFraction').value.split('/')[1];
+    if(!occupied()){status('Enter patients or load the example census first.','warn');return;}
+    if(alternative)variation++;else variation=0;
+    const before=JSON.stringify(groups.map(g=>[...g].sort((a,b)=>a-b)));
+    const resourceRooms=resourceEnabled?[...groups.at(-1)]:[];
+    const fixed=groups.slice(0,regularCount()).map((g,n)=>locked[n]?[...g]:[]);
+    if(fixed.flat().filter(r=>state[r]==='empty').length>totalBeds-occupied()){status('Locked nurses reserve more empty beds than the census fraction allows. Unlock or release the extra empty beds first.','bad');return;}
+    const solvingState=state.map((t,r)=>resourceRooms.includes(r)?'unstaffed':t);
+    const args=[solvingState,regularCount(),fixed,settings(),variation];
+    busy=true;document.querySelectorAll('button,input').forEach(el=>el.disabled=true);
+    status('Searching room combinations while preserving locked nurses…');
+    let worker,url;
+    try{
+      let result;
+      if(typeof Worker!=='undefined'){
+        url=URL.createObjectURL(new Blob([$('plannerEngine').textContent,'\nonmessage=e=>{try{postMessage(Planner.solve(...e.data));}catch(error){postMessage({error:error.message});}};'],{type:'text/javascript'}));
+        result=await new Promise((resolve,reject)=>{worker=new Worker(url);worker.onmessage=e=>resolve(e.data);worker.onerror=reject;worker.postMessage(args);});
+      }else {await new Promise(r=>setTimeout(r,20));result=Planner.solve(...args);}
+      if(result.error){status(result.error+' Existing assignments are unchanged.','bad');return;}
+      groups=resourceEnabled?result.groups.concat([resourceRooms]):result.groups;reserveEmptyBeds();changed();
+      const singles=groups.filter(g=>Planner.info(g,state).patients===1).length;
+      const same=before===JSON.stringify(groups.map(g=>[...g].sort((a,b)=>a-b)));
+      const warnings=[];
+      if(reserved()<totalBeds-occupied())warnings.push(`${totalBeds-occupied()-reserved()} admission bed(s) could not be reserved within nurse capacity, locks and the maximum span. Review before admitting.`);
+      if(singles)warnings.push(`${singles} nurse(s) still have one patient. Review locked groups, staffing and the hard span limit; this search does not prove that singles are unavoidable.`);
+      if(result.limited)warnings.push('Search limit reached; this is the best plan found, not a proven optimum.');
+      const v=Planner.validate(state,groups,settings());
+      if(v.warnings.some(w=>w.includes('empty-room')))warnings.push('The empty-room span preference was relaxed to preserve patient coverage and avoid singletons.');
+      status((alternative&&same?'No different plan found; the assignment is unchanged.':'Assignments completed. Locked nurses preserved; other groups numbered from 4061 toward 4090.')+' '+warnings.join(' '),warnings.length?'warn':'good');
+      save();
+    }catch(e){status('The search could not run in this browser. Existing assignments are unchanged. Try opening the downloaded HTML in Edge or Chrome.','bad');}
+    finally{worker?.terminate();if(url)URL.revokeObjectURL(url);busy=false;document.querySelectorAll('button,input').forEach(el=>el.disabled=false);}
+  }
+  function textPlan(review=false){
+    const lines=groups.map((g,n)=>`${nurseLabel(n)}${names[n]?.trim()?' ('+name(n)+')':''}${locked[n]?' [LOCKED]':''}: ${[...g].sort((a,b)=>a-b).map(r=>`${4061+r} ${state[r]==='empty'?'Empty':state[r].toUpperCase()}`).join(', ')||'Unassigned'}`);
+    if(review)lines.unshift('CHARGE NURSE PLANNER v11',`Staffing: ${regularCount()} regular RNs${resourceEnabled?" + resource RN":""}`,`Census: ${occupied()}/${totalBeds}; ${reserved()} empty admission beds reserved`,JSON.stringify(settings()),'Census: '+state.map((t,r)=>`${4061+r} ${automaticUnstaffed().has(r)?'unstaffed (automatic)':t}`).join(', '),'');
+    const v=Planner.validate(state,groups,settings());lines.push('',...v.errors,...v.warnings);return lines.join('\n');
+  }
+  async function copy(review){const text=textPlan(review);try{await navigator.clipboard.writeText(text);status('Assignment text copied.','good');}catch{
+    $('validation').replaceChildren();const p=document.createElement('p');p.textContent='Copy the selected assignment text:';const ta=document.createElement('textarea');ta.className='review';ta.readOnly=true;ta.value=text;$('validation').append(p,ta);ta.focus();ta.select();status('Press Ctrl+C to copy the selected text.');
+  }}
+  $('nurses').onchange=()=>{
+    const n=Math.max(1,Math.min(30,parseInt($('nurses').value,10)||1));
+    const regular=regularCount(),resourceGroup=resourceEnabled?groups.at(-1):null,resourceLock=resourceEnabled?locked.at(-1):false,resourceName=resourceEnabled?names[regular]:'';
+    if(n<regular&&groups.slice(n,regular).some(g=>g.length)){$('nurses').value=regular;status('Release assignments for the nurses being removed before reducing staffing.','warn');return;}
+    groups=Array.from({length:n},(_,i)=>i<regular?groups[i]:[]);locked=Array.from({length:n},(_,i)=>i<regular?locked[i]:false);
+    if(resourceEnabled){groups.push(resourceGroup);locked.push(resourceLock);names[n]=resourceName;}$('nurses').value=n;
+    if(typeof selected==='number'&&selected>=n)selected='census';renderNames();changed('Staffing updated.');
+  };
+  $('nurses').oninput=()=>{if(Number.isInteger(+$('nurses').value)&&+$('nurses').value>=1&&+$('nurses').value<=30)$('nurses').onchange();};
+  for(const id of ['maxSpan','maxEmpty','prefGap','hardEmpty'])$(id).onchange=()=>changed('Rules updated. Validate the current plan or optimize again.');
+  $('censusFraction').onchange=()=>{
+    const error=censusError();if(error){status(error,'bad');return;}
+    totalBeds=+$('censusFraction').value.split('/')[1];changed(`Census ${occupied()}/${totalBeds}: ${totalBeds-occupied()} empty beds available for admissions. Optimize to apply this limit to unlocked assignments.`);
+    if(reserved()>totalBeds-occupied())validate();
+  };
+  $('censusFraction').oninput=()=>{if(!censusError())$('censusFraction').onchange();};
+  $('clearBtn').onclick=()=>{if(!confirm('Clear the entire census and all assignments, including locked nurses?'))return;baseline=null;events=[];state.fill('empty');groups=groups.map(()=>[]);locked.fill(false);selected='census';$('censusFraction').value='0/'+totalBeds;changed('Census and assignments cleared.');};
+  $('randomBtn').onclick=()=>{if((state.some(t=>t!=='empty')||groups.some(g=>g.length))&&!confirm('Replace this census and all assignments with the practice example?'))return;
+    baseline=null;events=[];resourceEnabled=false;state.fill('empty');[61,65,71,78,83,87,89,90].forEach(r=>state[r-61]='imc');[64,66,67,68,69,70,73,74,75,77,80,81,85].forEach(r=>state[r-61]='ms');
+    groups=Array.from({length:7},()=>[]);locked=Array(7).fill(false);$('nurses').value=7;totalBeds=30;$('censusFraction').value='21/30';selected='census';renderNames();changed('Practice census loaded: 8 IMC + 13 MS, 7 nurses. Select rooms manually or optimize.');};
+  $('resetAssignments').onclick=()=>{groups=groups.map((g,n)=>locked[n]?g:[]);changed('Unlocked assignments cleared. All locked nurses and the census were preserved.');};
+  $('optimizeBtn').onclick=()=>optimize(false);$('iterateBtn').onclick=()=>optimize(true);$('validateBtn').onclick=validate;$('copyBtn').onclick=()=>copy(false);$('reviewBtn').onclick=()=>copy(true);
+  $('verticalView').onchange=()=>{applyLayout();save();};
+  function openStatusEditor(r){
+    $('editRoomLabel').textContent=`Room ${4061+r} · ${state[r].toUpperCase()}`;
+    $('newRoomStatus').value=state[r];
+    $('saveRoomStatus').onclick=()=>{
+      const next=$('newRoomStatus').value,previous=state[r];
+      if(next!==previous){
+        const owner=owners().get(r);
+        state[r]=next;
+        const type=previous==='imc'&&next==='ms'?'Downgrade':previous==='ms'&&next==='imc'?'Upgrade':isPatient(previous)&&next==='empty'?'Discharge':previous==='empty'&&isPatient(next)?'Admission':'Status change';
+        events.push({time:new Date().toISOString(),room:r,from:previous,to:next,type,nurse:owner===undefined?'Unassigned':nurseLabel(owner)});
+        $('censusFraction').value=occupied()+'/'+totalBeds;
+        changed(`${type} recorded for ${4061+r}. Assignment owner retained; validate after changes.`);
+        validate();
+      }
+      $('statusEditor').close();
+    };
+    $('statusEditor').showModal();
+  }
+  function renderShift(){
+    $('baselineSummary').textContent=baseline?`AM baseline set ${new Date(baseline.time).toLocaleString()}. ${events.length} changes recorded. Status edits do not change nurse ownership.`:'Enter the room census and nurse assignments, then set the AM baseline to start tracking.';
+    const counts={Upgrade:0,Downgrade:0,Discharge:0,Admission:0};events.forEach(e=>{if(e.type in counts)counts[e.type]++;});
+    $('eventCounts').textContent=Object.entries(counts).map(([type,count])=>`${type}s: ${count}`).join(' · ');
+    $('shiftEvents').replaceChildren();
+    [...events].reverse().forEach(e=>{const li=document.createElement('li');li.textContent=`${new Date(e.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} · ${4061+e.room} · ${e.type} · ${e.from.toUpperCase()} → ${e.to.toUpperCase()} · ${e.nurse}`;$('shiftEvents').append(li);});
+    $('resourcePanel').hidden=!resourceEnabled;$('resourceEnabled').checked=resourceEnabled;
+    $('resourceRooms').replaceChildren();
+    if(resourceEnabled){
+      const ids=groups.at(-1).filter(r=>isPatient(state[r]));
+      $('resourceSummary').textContent=`Resource: ${ids.filter(r=>state[r]==='ms').length} MS · ${ids.filter(r=>state[r]==='imc').length} IMC. ${ids.length?'Return these patients to regular RNs when capacity permits.':'No patients assigned.'}`;
+      ids.forEach(r=>{
+        const line=document.createElement('div');line.className='transferRow';const label=document.createElement('span');label.textContent=`${4061+r} ${state[r].toUpperCase()}`;
+        const select=document.createElement('select');select.setAttribute('aria-label',`Transfer room ${4061+r} to`);
+        for(let n=0;n<regularCount();n++){const option=document.createElement('option');option.value=n;option.textContent=nurseLabel(n)+(names[n]?' · '+names[n]:'');select.append(option);}
+        line.append(label,select,button('Transfer',()=>{
+          const n=+select.value,source=groups.length-1;
+          if(locked[n]||locked[source]){status('Unlock both the resource nurse and receiving nurse before transferring.','warn');return;}
+          let ids=groups[n].concat(r);while(ids.length>Planner.info(ids,state).cap&&ids.some(x=>state[x]==='empty'))ids.splice(ids.findIndex(x=>state[x]==='empty'),1);
+          if(!Planner.valid(ids,state,settings())){status('Transfer would exceed the receiving nurse’s ratio or maximum span. Choose another nurse or adjust assignments.','bad');return;}
+          groups[n]=ids;groups[source]=groups[source].filter(x=>x!==r);
+          if(baseline)events.push({time:new Date().toISOString(),room:r,from:state[r],to:state[r],type:'Resource transfer',nurse:`Resource → ${nurseLabel(n)}`});
+          changed(`Room ${4061+r} transferred to ${nurseLabel(n)}. A reserved empty bed is released if needed for capacity.`);
+        }));$('resourceRooms').append(line);
+      });
+    }
+  }
+  $('resourceEnabled').onchange=()=>{
+    if($('resourceEnabled').checked){resourceEnabled=true;groups.push([]);locked.push(false);names[groups.length-1]='';}
+    else{
+      if(groups.at(-1).length){$('resourceEnabled').checked=true;status('Transfer or release the resource nurse’s rooms before turning resource coverage off.','warn');return;}
+      groups.pop();locked.pop();resourceEnabled=false;if(selected>=groups.length)selected='census';
+    }
+    renderNames();changed('Resource coverage updated. Optimization preserves resource patients and only assigns to regular RNs.');
+  };
+  $('setBaseline').onclick=()=>{
+    const check=validate();if(check.errors.length){status('Resolve validation issues before setting the AM baseline.','bad');return;}
+    if(!occupied()){status('Enter the census and assignments first.','warn');return;}
+    if(baseline&&!confirm('Replace the current baseline and start a new change log? Copy the shift log first if you need to keep it.'))return;
+    baseline={time:new Date().toISOString(),state:[...state],groups:groups.map(g=>[...g]),names:[...names]};events=[];locked=groups.map(g=>g.length>0);selected='census';changed('AM baseline saved and assignments locked. Tap rooms to record direct status changes.');
+  };
+  $('cancelRoomStatus').onclick=()=>$('statusEditor').close();
+  $('copyShiftLog').onclick=async()=>{
+    const text=['SHIFT CHANGE LOG',baseline?'Baseline: '+new Date(baseline.time).toLocaleString():'No baseline set',...events.map(e=>`${e.time} | ${4061+e.room} | ${e.type} | ${e.from} → ${e.to} | ${e.nurse}`)].join('\n');
+    const box=$('shiftLogCopy');box.hidden=false;box.value=text;box.focus();box.select();try{await navigator.clipboard.writeText(text);status('Shift log copied.','good');}catch{status('Select and copy the shift log text.');}
+  };
+  load();renderNames();render();applyLayout();status('Set up the census and assignments, then Set AM baseline to begin tracking.');
+})();
+
+</script>
+</body>
+</html>
+
